@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes aqua-glow {
+  0% {
+    shadow-color: rgba(1, 205, 254, 0.4);
+  }
+  50% {
+    shadow-color: rgba(1, 205, 254, 0.8);
+  }
+  100% {
+    shadow-color: rgba(1, 205, 254, 0.4);
+  }
+}
