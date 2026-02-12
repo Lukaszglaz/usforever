@@ -60,3 +60,27 @@ export const riddles = [
     answer: "milosc",
   },
 ];
+
+export const penaltyQuestions = [
+  {
+    id: "p1",
+    question:
+      "Gdy pierwszy raz nasze dłonie splotły się na tym konkretnym zakręcie w Rudnie... co było wtedy ważniejsze od słów?",
+    hint: "To, co czułaś, a nie to, co widziałaś.",
+    answer: "bliskosc",
+  },
+  {
+    id: "p2",
+    question:
+      "Pamiętasz nasz przystanek w zimny wieczór? To nie była tylko nuda czekania. Jakim słowem określiłabyś to, co nas tam wtedy ogrzało bardziej niż kurtki?",
+    hint: "Nie chodzi o fizyczny ogień.",
+    answer: "uczucie",
+  },
+  {
+    id: "p3",
+    question:
+      "Skoro 'RAZEM' było trudne, to znajdź słowo, które jest fundamentem tego, że w ogóle tamtego dnia się spotkaliśmy. Bez czego nie byłoby 'nas'?",
+    hint: "Coś co ...... ale tego nie widać.",
+    answer: "zaufanie",
+  },
+];
