@@ -57,7 +57,7 @@ export default function Page() {
     isCorrect: boolean,
   ) => {
     try {
-      await fetch("/api/notify", {
+      const response = await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
