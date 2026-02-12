@@ -4,7 +4,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { riddles, penaltyQuestions } from "./data/riddles";
 import GrandFinale from "./components/GrandFinale/GrandFinale";
-import { Lock, AlertCircle, Heart, Info } from "lucide-react";
+import {
+  CloudLightning,
+  LockKeyhole,
+  ShieldAlert,
+  CheckCircle,
+  Zap,
+  Fingerprint,
+  Heart,
+  Sparkles,
+  Search,
+} from "lucide-react";
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);
@@ -13,9 +23,8 @@ export default function Page() {
   const [isSolved, setIsSolved] = useState(false);
   const [isWrong, setIsWrong] = useState(false);
   const [input, setInput] = useState("");
-  const [currentDay, setCurrentDay] = useState(new Date().getDate());
+  const [currentDay] = useState(new Date().getDate());
 
-  // LOGIKA KARY
   const [isPenaltyMode, setIsPenaltyMode] = useState(false);
   const [penaltyStep, setPenaltyStep] = useState(0);
   const [nextLockTime, setNextLockTime] = useState({
@@ -24,21 +33,22 @@ export default function Page() {
     s: "00",
   });
 
+  // Pobieramy zagadkę (dodaj rzutowanie na any, jeśli TS krzyczy o extraHint)
+  const currentRiddle = (
+    isPenaltyMode
+      ? penaltyQuestions[penaltyStep]
+      : riddles.find((r) => r.day === currentDay)
+  ) as any;
+
   useEffect(() => {
     setMounted(true);
-    // Sprawdzamy, czy kara za dzień 12 została już wykonana
     const penanceDone = localStorage.getItem("penance_12_complete");
 
-    // Kara aktywuje się TYLKO jeśli jest dzień 12 (lub późniejszy, jeśli go nie zrobiła)
-    // i dopóki flaga penance_12_complete nie jest true.
     if (currentDay >= 12 && !penanceDone) {
       setIsPenaltyMode(true);
       const savedStep = localStorage.getItem("penalty_step");
       if (savedStep) setPenaltyStep(parseInt(savedStep));
-      setIsSolved(false);
     } else {
-      // Normalny tryb dla dnia 13 i 14
-      setIsPenaltyMode(false);
       const solved = localStorage.getItem(`solved_day_${currentDay}`);
       if (solved) {
         setIsSolved(true);
@@ -48,36 +58,29 @@ export default function Page() {
   }, [currentDay]);
 
   useEffect(() => {
+    if (!mounted) return;
     const timer = setInterval(() => {
       const now = new Date();
-      const h = now.getHours();
-      const m = now.getMinutes();
-      let lock = true;
-      const target = new Date();
+      let target = new Date();
+      let shouldLock = true;
 
       if (isPenaltyMode) {
-        if (penaltyStep === 0) {
-          target.setHours(18, 0, 0, 0);
-          lock = h < 18;
-        } else if (penaltyStep === 1) {
-          target.setHours(18, 30, 0, 0);
-          lock = h < 18 || (h === 18 && m < 30);
-        } else if (penaltyStep === 2) {
-          target.setHours(19, 0, 0, 0);
-          lock = h < 19;
-        }
+        const pTimes = [
+          { h: 18, m: 0 },
+          { h: 19, m: 0 },
+          { h: 20, m: 0 },
+        ];
+        target.setHours(pTimes[penaltyStep].h, pTimes[penaltyStep].m, 0, 0);
+        shouldLock = now.getTime() < target.getTime();
       } else {
-        // Standardowe odblokowanie kolejnych dni o 14:44
         target.setHours(14, 44, 0, 0);
-        if (now >= target) target.setDate(now.getDate() + 1);
-
-        // Dzień 5 (startowy) jest zawsze odblokowany, reszta po 14:44
-        const unlockTime = new Date();
-        unlockTime.setHours(14, 44, 0, 0);
-        lock = now < unlockTime && currentDay !== 5;
+        if (now.getTime() >= target.getTime()) {
+          shouldLock = false;
+          target.setDate(now.getDate() + 1);
+        }
       }
 
-      setIsLocked(lock);
+      setIsLocked(shouldLock);
       const diff = target.getTime() - now.getTime();
       if (diff > 0) {
         setNextLockTime({
@@ -94,207 +97,175 @@ export default function Page() {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [isPenaltyMode, penaltyStep, currentDay]);
+  }, [isPenaltyMode, penaltyStep, currentDay, mounted]);
 
   const handleCheck = async () => {
+    if (!input.trim()) return;
     const guess = input.toLowerCase().trim();
-    if (isPenaltyMode) {
-      if (guess === penaltyQuestions[penaltyStep].answer.toLowerCase()) {
-        confetti({ particleCount: 50, colors: ["#e11d48"] });
-        const nextStep = penaltyStep + 1;
-        if (nextStep < 3) {
-          setPenaltyStep(nextStep);
-          localStorage.setItem("penalty_step", nextStep.toString());
+    const correct = guess === currentRiddle?.answer.toLowerCase();
+
+    if (correct) {
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+      if (isPenaltyMode) {
+        const next = penaltyStep + 1;
+        if (next < 3) {
+          setPenaltyStep(next);
+          localStorage.setItem("penalty_step", next.toString());
           setInput("");
         } else {
-          // KONIEC KARY
           setIsPenaltyMode(false);
           localStorage.setItem("penance_12_complete", "true");
-          localStorage.setItem("solved_day_12", "true");
-          setIsSolved(true);
           setInput("");
-          confetti({ particleCount: 200, spread: 80 });
         }
       } else {
-        setIsWrong(true);
+        setIsSolved(true);
+        localStorage.setItem(`solved_day_${currentDay}`, "true");
+        if (currentDay === 14) setIsGrandFinale(true);
       }
-      return;
-    }
-
-    // Standardowe sprawdzanie dla dnia 13 i 14
-    const res = await fetch("/api/check", {
-      method: "POST",
-      body: JSON.stringify({ day: currentDay, guess: input }),
-    });
-    if (res.ok) {
-      confetti({ particleCount: 150, colors: ["#ff71ce", "#01cdfe"] });
-      setIsSolved(true);
-      localStorage.setItem(`solved_day_${currentDay}`, "true");
-      if (currentDay === 14) setTimeout(() => setIsGrandFinale(true), 1500);
     } else {
       setIsWrong(true);
-      setInput("");
     }
   };
 
-  const currentRiddle = isPenaltyMode
-    ? penaltyQuestions[penaltyStep]
-    : riddles.find((r) => r.day === currentDay);
-
   if (!mounted) return null;
-  // if (isGrandFinale) return <GrandFinale />;
+  if (isGrandFinale) return <GrandFinale />;
 
   return (
-    <main className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-[#0a0607]">
-      <style>{`
-        @keyframes float {
-          0% { transform: translateY(0vh) rotate(0deg); opacity: 0; }
-          20% { opacity: 0.5; }
-          100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
-        }
-        .heart-bg { position: absolute; color: rgba(225, 29, 72, 0.2); animation: float 15s linear infinite; z-index: 1; }
-      `}</style>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(15)].map((_, i) => (
-          <Heart
+    <main className="min-h-screen flex items-center justify-center p-6 bg-[#0a0607] overflow-hidden relative">
+      {/* Tło z sercami */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {[...Array(25)].map((_, i) => (
+          <motion.div
             key={i}
-            className="heart-bg"
-            size={Math.random() * 20 + 10}
+            className="absolute text-rose-500/20"
+            animate={{
+              y: [0, -120, 0],
+              opacity: [0.1, 0.4, 0.1],
+              rotate: [0, 20, -20, 0],
+            }}
+            transition={{
+              duration: 7 + Math.random() * 5,
+              repeat: Infinity,
+              delay: i * 0.2,
+            }}
             style={{
               left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100 + 100}%`,
-              animationDelay: `${Math.random() * 15}s`,
-              animationDuration: `${Math.random() * 10 + 10}s`,
+              top: `${Math.random() * 100}%`,
             }}
-          />
+          >
+            <Heart size={Math.random() * 30 + 15} fill="currentColor" />
+          </motion.div>
         ))}
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-lg"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md relative z-10"
       >
-        <div className="backdrop-blur-[25px] bg-black/40 border border-rose-500/20 rounded-[45px] p-8 shadow-2xl relative">
+        <div className="bg-black/80 backdrop-blur-3xl border border-rose-500/30 rounded-[40px] p-8 shadow-2xl">
           <AnimatePresence mode="wait">
             {isLocked ? (
               <motion.div
-                key="locked"
+                key="lock"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-6"
+                className="text-center py-10"
               >
-                <Lock className="mx-auto mb-6 text-rose-600/50" size={30} />
-                <h2 className="text-[10px] tracking-[0.6em] uppercase mb-10 font-bold text-rose-500/60">
-                  Blokada Czasowa
+                <LockKeyhole
+                  className="mx-auto text-rose-500/40 mb-6 animate-pulse"
+                  size={50}
+                />
+                <h2 className="text-white text-xl font-serif italic uppercase tracking-wider">
+                  System Wstrzymany
                 </h2>
-                <div className="text-3xl font-extralight text-white italic">
-                  Odpocznij, Natalia...
-                </div>
-                <p className="mt-3 text-zinc-400 text-sm">
-                  {isPenaltyMode
-                    ? "Kara przystąpi do działania o określonej godzinie."
-                    : "Kolejne wspomnienie wkrótce."}
-                </p>
-                <p className="mt-8 text-[9px] text-zinc-500 uppercase tracking-widest">
-                  Wróć za:{" "}
-                  <span className="text-rose-500 ml-1 font-mono font-bold">
-                    {nextLockTime.h}:{nextLockTime.m}:{nextLockTime.s}
-                  </span>
+                <p className="text-zinc-500 text-[9px] tracking-[0.4em] uppercase mt-6 font-bold">
+                  Autoryzacja za: {nextLockTime.h}:{nextLockTime.m}:
+                  {nextLockTime.s}
                 </p>
               </motion.div>
             ) : isWrong ? (
-              <motion.div
-                key="wrong"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center space-y-6 py-6"
-              >
-                <AlertCircle className="mx-auto text-rose-500" size={40} />
-                <h3 className="text-rose-500 text-lg font-bold tracking-[0.2em] uppercase">
-                  Błędna Odpowiedź
-                </h3>
+              <motion.div key="wrong" className="text-center py-10">
+                <ShieldAlert className="mx-auto text-rose-600 mb-6" size={60} />
+                <h2 className="text-rose-500 font-bold uppercase tracking-widest text-sm">
+                  Błąd Weryfikacji
+                </h2>
                 <button
                   onClick={() => setIsWrong(false)}
-                  className="px-10 py-3 bg-rose-950/30 border border-rose-500/30 rounded-full text-white text-[9px] uppercase tracking-[0.2em]"
+                  className="mt-8 px-10 py-3 bg-rose-600 rounded-full text-white text-[10px] font-black uppercase transition-all shadow-lg"
                 >
-                  Spróbuj ponownie
+                  Ponów próbę
                 </button>
               </motion.div>
             ) : isSolved ? (
-              <motion.div key="solved" className="text-center space-y-6 py-4">
-                <Heart
-                  className="mx-auto text-rose-500 fill-rose-500/20"
-                  size={40}
-                />
-                <p className="text-xl font-light text-white italic">
-                  Zapisano pomyślnie.
+              <motion.div key="solved" className="text-center py-10">
+                <CheckCircle className="mx-auto text-rose-500 mb-6" size={60} />
+                <p className="text-white italic text-lg font-serif">
+                  Pomyślnie zweryfikowano.
                 </p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest">
-                  Wróć jutro o 14:44
-                </p>
+                <div className="flex justify-center gap-2 mt-4 text-rose-500/50">
+                  <Sparkles size={16} />
+                  <Sparkles size={16} />
+                </div>
               </motion.div>
             ) : (
-              <motion.div
-                key="active"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="space-y-8"
-              >
-                <div className="text-center">
-                  <span
-                    className={`text-[10px] tracking-[0.4em] uppercase font-bold ${isPenaltyMode ? "text-rose-500" : "text-blue-400"}`}
-                  >
+              <motion.div key="active" className="space-y-6">
+                <div className="flex flex-col items-center gap-2">
+                  <Fingerprint className="text-rose-500" size={30} />
+                  <div className="text-[9px] tracking-[0.5em] text-rose-500 font-black uppercase">
                     {isPenaltyMode
-                      ? `⚠️ PRÓBA ODKUPIENIA (${penaltyStep + 1}/3)`
+                      ? `KARA: SEKTOR ${penaltyStep + 1}`
                       : "ZAGADKA DNIA"}
-                  </span>
-                  {isPenaltyMode && (
-                    <p className="text-[9px] text-rose-400/60 uppercase tracking-tighter mt-2">
-                      To kara za błąd. Wykaż się skupieniem.
-                    </p>
-                  )}
+                  </div>
+                </div>
+
+                <div className="bg-linear-to-b from-white/10 to-transparent p-6 rounded-[30px] border border-white/10 shadow-inner">
+                  <p className="text-white text-center text-lg font-serif italic leading-relaxed">
+                    "{currentRiddle?.question}"
+                  </p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-white/5 border border-white/5 p-6 rounded-[30px]">
-                    <p className="text-xl text-zinc-100 font-light italic leading-relaxed font-serif text-center">
-                      "{currentRiddle?.question}"
-                    </p>
+                  {/* GŁÓWNA PODPOWIEDŹ (Z LUPKĄ) */}
+                  <div className="flex gap-3 p-4 bg-rose-950/20 rounded-2xl border border-rose-500/20 items-center">
+                    <Search size={16} className="text-rose-500 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-[11px] text-zinc-300 font-medium italic">
+                        {currentRiddle?.hint}
+                      </p>
+                    </div>
                   </div>
 
-                  {currentRiddle?.hint && (
-                    <div className="flex items-start gap-3 px-4 py-3 bg-white/5 border border-white/5 rounded-2xl">
-                      <Info className="text-rose-500/50 shrink-0" size={14} />
-                      <div className="text-[11px] text-zinc-400 leading-snug">
-                        <span className="text-zinc-500 uppercase text-[9px] font-bold block mb-1">
-                          Podpowiedź:
-                        </span>
-                        {currentRiddle.hint}
-                      </div>
-                    </div>
+                  {/* DODATKOWA PODPOWIEDŹ (EXTRA HINT) */}
+                  {currentRiddle?.extraHint && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-[10px] text-zinc-600 italic text-center px-6 leading-tight"
+                    >
+                      {currentRiddle.extraHint}
+                    </motion.p>
                   )}
                 </div>
 
-                <div className="relative pt-4">
+                <div className="relative pt-2">
                   <input
                     type="text"
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Twoja odpowiedź..."
-                    className="w-full bg-black/40 border border-rose-500/20 rounded-2xl py-5 px-6 text-center text-white outline-none focus:border-rose-500/60 transition-all font-serif italic"
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      if (isWrong) setIsWrong(false);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleCheck()}
+                    className="w-full bg-zinc-900/50 border-2 border-rose-500/10 focus:border-rose-500 rounded-2xl p-4 text-center text-white outline-none transition-all text-base shadow-inner"
+                    placeholder="Wpisz odpowiedź..."
                   />
-                  {input.length >= 1 && (
-                    <motion.button
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      onClick={handleCheck}
-                      className="absolute right-2 top-6 bottom-2 px-6 text-[10px] font-bold uppercase rounded-xl bg-rose-600 text-white shadow-lg"
-                    >
-                      OK
-                    </motion.button>
-                  )}
+                  <button
+                    onClick={handleCheck}
+                    className="w-full mt-4 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-lg"
+                  >
+                    Sprawdź
+                  </button>
                 </div>
               </motion.div>
             )}

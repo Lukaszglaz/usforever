@@ -67,6 +67,7 @@ export const penaltyQuestions = [
     question:
       "Gdy pierwszy raz nasze dłonie splotły się na tym konkretnym zakręcie w Rudnie... co było wtedy ważniejsze od słów?",
     hint: "To, co czułaś, a nie to, co widziałaś.",
+    extraHint: "Analiza sensoryczna: Skup się na dotyku i bliskości.", // <--- NOWE POLE
     answer: "bliskosc",
   },
   {
@@ -74,6 +75,7 @@ export const penaltyQuestions = [
     question:
       "Pamiętasz nasz przystanek w zimny wieczór? To nie była tylko nuda czekania. Jakim słowem określiłabyś to, co nas tam wtedy ogrzało bardziej niż kurtki?",
     hint: "Nie chodzi o fizyczny ogień.",
+    extraHint: "Skanowanie emocji: To coś, co kiełkowało w nas od środka.", // <--- NOWE POLE
     answer: "uczucie",
   },
   {
@@ -81,6 +83,8 @@ export const penaltyQuestions = [
     question:
       "Skoro 'RAZEM' było trudne, to znajdź słowo, które jest fundamentem tego, że w ogóle tamtego dnia się spotkaliśmy. Bez czego nie byłoby 'nas'?",
     hint: "Coś co ...... ale tego nie widać.",
+    extraHint:
+      "Protokół krytyczny: Niewidzialna więź, która pozwala zamknąć oczy i biec przed siebie, wiedząc, że druga osoba Cię złapie.",
     answer: "zaufanie",
   },
 ];
