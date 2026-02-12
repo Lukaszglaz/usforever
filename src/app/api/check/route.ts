@@ -1,25 +1,37 @@
-import { riddles } from "@/app/data/riddles";
 import { NextResponse } from "next/server";
-
-const DISCORD_WEBHOOK_URL = "TU_WLEJ_SWOJ_WEBHOOK_URL"; // Stwórz na Discordzie
+import nodemailer from "nodemailer"; // <-- TEGO BRAKOWAŁO
 
 export async function POST(req: Request) {
-  const { day, guess } = await req.json();
-  const riddle = riddles.find((r) => r.day === day);
+  try {
+    const { subject, message } = await req.json();
 
-  if (riddle && guess.toLowerCase().trim() === riddle.answer.toLowerCase()) {
-    // Powiadomienie dla Ciebie na Discord
-    if (DISCORD_WEBHOOK_URL !== "TU_WLEJ_SWOJ_WEBHOOK_URL") {
-      await fetch(DISCORD_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: `❤️ **Sukces!** Odgadła hasło na dzień ${day}. Odpowiedź: "${guess}"`,
-        }),
-      });
-    }
+    // KONFIGURACJA SMTP
+    const transporter = nodemailer.createTransport({
+      host: "mail.glazlukasz.pl",
+      port: 465,
+      secure: true,
+      auth: {
+        user: "kontakt@glazlukasz.pl",
+        pass: "mjU&*IK<2#223@!",
+      },
+    });
+
+    const mailOptions = {
+      from: "kontakt@glazlukasz.pl",
+      to: "kontakt@glazlukasz.pl",
+      subject: subject,
+      text: message,
+    };
+
+    await transporter.sendMail(mailOptions);
+
     return NextResponse.json({ success: true });
+  } catch (error: any) {
+    // <-- DODANO : any DLA TYPESCRYPTA
+    console.error("Błąd wysyłki maila:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Błąd wysyłki" },
+      { status: 500 },
+    );
   }
-
-  return NextResponse.json({ success: false }, { status: 400 });
 }
