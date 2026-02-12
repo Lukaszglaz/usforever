@@ -30,7 +30,7 @@ export default function Page() {
     s: "00",
   });
 
-  // 1. USTALANIE AKTUALNEGO PYTANIA
+  // 1. USTALANIE AKTUALNEGO PYTANIA (ZAPAMIĘTANE PRZEZ USEMEMO)
   const currentRiddle = useMemo(() => {
     if (isPenaltyMode) {
       return penaltyQuestions[penaltyStep];
@@ -38,7 +38,7 @@ export default function Page() {
     return riddles.find((r) => r.day === currentDay);
   }, [isPenaltyMode, penaltyStep, currentDay]);
 
-  // TŁO
+  // 2. PŁYNNE TŁO - SERCA
   const backgroundHearts = useMemo(() => {
     return [...Array(30)].map((_, i) => ({
       id: i,
@@ -52,6 +52,7 @@ export default function Page() {
     }));
   }, []);
 
+  // 3. RAPORTOWANIE POSTĘPÓW NA MAIL
   const reportProgress = async (
     step: number,
     answer: string,
@@ -71,6 +72,7 @@ export default function Page() {
     }
   };
 
+  // 4. INITIAL LOAD - SPRAWDZANIE STATUSU
   useEffect(() => {
     setMounted(true);
     const penanceDone = localStorage.getItem("penance_12_complete");
@@ -81,13 +83,13 @@ export default function Page() {
       const savedStep = localStorage.getItem("penalty_step");
       if (savedStep) setPenaltyStep(parseInt(savedStep));
     } else if (todaySolved || penanceDone) {
-      // Jeśli skończyła karę LUB rozwiązała normalną zagadkę - pokaż sukces
       setIsSolved(true);
       setIsPenaltyMode(false);
       if (currentDay === 14) setIsGrandFinale(true);
     }
   }, [currentDay]);
 
+  // 5. TIMER I BLOKADA CZASOWA
   useEffect(() => {
     if (!mounted) return;
     const timer = setInterval(() => {
@@ -101,19 +103,27 @@ export default function Page() {
           { h: 18, m: 45 },
           { h: 19, m: 25 },
         ];
-        // Zabezpieczenie przed błędem tablicy
         const time = pTimes[penaltyStep] || pTimes[2];
         target.setHours(time.h, time.m, 0, 0);
         shouldLock = now.getTime() < target.getTime();
       } else {
+        // Blokada do jutra do 14:44
         target.setHours(14, 44, 0, 0);
         if (now.getTime() >= target.getTime()) {
           shouldLock = false;
           target.setDate(now.getDate() + 1);
+        } else {
+          shouldLock = false; // Pozwól wejść jeśli zadanie na dziś jest aktywne
         }
       }
 
-      setIsLocked(shouldLock);
+      // Jeśli już rozwiązała, nie pokazuj ekranu blokady, tylko ekran sukcesu z timerem
+      if (isSolved) {
+        setIsLocked(false);
+      } else {
+        setIsLocked(shouldLock);
+      }
+
       const diff = target.getTime() - now.getTime();
       if (diff > 0) {
         setNextLockTime({
@@ -130,7 +140,7 @@ export default function Page() {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [isPenaltyMode, penaltyStep, currentDay, mounted]);
+  }, [isPenaltyMode, penaltyStep, currentDay, mounted, isSolved]);
 
   const handleCheck = async () => {
     if (!input.trim() || !currentRiddle) return;
@@ -154,7 +164,7 @@ export default function Page() {
           setInput("");
         } else {
           setIsPenaltyMode(false);
-          setIsSolved(true); // Pokaż ekran sukcesu po zakończeniu kary
+          setIsSolved(true);
           localStorage.setItem("penance_12_complete", "true");
           localStorage.setItem(`solved_day_${currentDay}`, "true");
           setInput("");
@@ -238,13 +248,28 @@ export default function Page() {
                 </button>
               </motion.div>
             ) : isSolved ? (
-              <motion.div key="solved" className="text-center py-12">
+              <motion.div
+                key="solved"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12"
+              >
                 <CheckCircle className="mx-auto text-rose-500 mb-6" size={65} />
                 <p className="text-white italic text-xl font-serif">
                   Dostęp przyznany.
                 </p>
-                <div className="flex justify-center gap-3 mt-6 text-rose-500/60 font-bold uppercase tracking-[0.2em] text-[10px]">
-                  Wróć jutro po kolejne wyzwanie!
+
+                <div className="mt-8 space-y-2 py-4 bg-rose-950/20 rounded-3xl border border-rose-500/10">
+                  <p className="text-zinc-500 text-[9px] tracking-[0.4em] uppercase font-black">
+                    Kolejne wyzwanie za:
+                  </p>
+                  <p className="text-rose-500 font-mono text-2xl tracking-widest shadow-rose-500/20">
+                    {nextLockTime.h}:{nextLockTime.m}:{nextLockTime.s}
+                  </p>
+                </div>
+
+                <div className="flex justify-center gap-3 mt-8 text-rose-500/60 font-bold uppercase tracking-[0.2em] text-[10px]">
+                  Wróć jutro po więcej...
                 </div>
               </motion.div>
             ) : (
