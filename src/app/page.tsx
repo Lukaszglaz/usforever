@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Fingerprint,
   Heart,
-  Sparkles,
   Search,
 } from "lucide-react";
 
@@ -31,25 +30,27 @@ export default function Page() {
     s: "00",
   });
 
-  // GENEROWANIE SERC - WIĘKSZE I MOCNIEJSZY RUCH
+  // 1. USTALANIE AKTUALNEGO PYTANIA
+  const currentRiddle = useMemo(() => {
+    if (isPenaltyMode) {
+      return penaltyQuestions[penaltyStep];
+    }
+    return riddles.find((r) => r.day === currentDay);
+  }, [isPenaltyMode, penaltyStep, currentDay]);
+
+  // TŁO
   const backgroundHearts = useMemo(() => {
     return [...Array(30)].map((_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
-      size: Math.random() * 30 + 20, // Większe serca
-      duration: 8 + Math.random() * 7, // Szybszy ruch
+      size: Math.random() * 30 + 20,
+      duration: 8 + Math.random() * 7,
       delay: Math.random() * -15,
-      xAmplitude: Math.random() * 40 - 20, // Mocniejsze bujanie na boki
-      yAmplitude: Math.random() * -80 - 40, // Wyższe latanie
+      xAmplitude: Math.random() * 40 - 20,
+      yAmplitude: Math.random() * -80 - 40,
     }));
   }, []);
-
-  const currentRiddle = (
-    isPenaltyMode
-      ? penaltyQuestions[penaltyStep]
-      : riddles.find((r) => r.day === currentDay)
-  ) as any;
 
   const reportProgress = async (
     step: number,
@@ -57,7 +58,7 @@ export default function Page() {
     isCorrect: boolean,
   ) => {
     try {
-      const response = await fetch("/api/check", {
+      await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,17 +74,17 @@ export default function Page() {
   useEffect(() => {
     setMounted(true);
     const penanceDone = localStorage.getItem("penance_12_complete");
+    const todaySolved = localStorage.getItem(`solved_day_${currentDay}`);
 
     if (currentDay >= 12 && !penanceDone) {
       setIsPenaltyMode(true);
       const savedStep = localStorage.getItem("penalty_step");
       if (savedStep) setPenaltyStep(parseInt(savedStep));
-    } else {
-      const solved = localStorage.getItem(`solved_day_${currentDay}`);
-      if (solved) {
-        setIsSolved(true);
-        if (currentDay === 14) setIsGrandFinale(true);
-      }
+    } else if (todaySolved || penanceDone) {
+      // Jeśli skończyła karę LUB rozwiązała normalną zagadkę - pokaż sukces
+      setIsSolved(true);
+      setIsPenaltyMode(false);
+      if (currentDay === 14) setIsGrandFinale(true);
     }
   }, [currentDay]);
 
@@ -100,7 +101,9 @@ export default function Page() {
           { h: 18, m: 45 },
           { h: 19, m: 25 },
         ];
-        target.setHours(pTimes[penaltyStep].h, pTimes[penaltyStep].m, 0, 0);
+        // Zabezpieczenie przed błędem tablicy
+        const time = pTimes[penaltyStep] || pTimes[2];
+        target.setHours(time.h, time.m, 0, 0);
         shouldLock = now.getTime() < target.getTime();
       } else {
         target.setHours(14, 44, 0, 0);
@@ -130,9 +133,9 @@ export default function Page() {
   }, [isPenaltyMode, penaltyStep, currentDay, mounted]);
 
   const handleCheck = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !currentRiddle) return;
     const guess = input.toLowerCase().trim();
-    const correct = guess === currentRiddle?.answer.toLowerCase();
+    const correct = guess === (currentRiddle as any).answer.toLowerCase();
 
     await reportProgress(penaltyStep, input, correct);
 
@@ -151,7 +154,9 @@ export default function Page() {
           setInput("");
         } else {
           setIsPenaltyMode(false);
+          setIsSolved(true); // Pokaż ekran sukcesu po zakończeniu kary
           localStorage.setItem("penance_12_complete", "true");
+          localStorage.setItem(`solved_day_${currentDay}`, "true");
           setInput("");
         }
       } else {
@@ -165,16 +170,15 @@ export default function Page() {
   };
 
   if (!mounted) return null;
-  // if (isGrandFinale) return <GrandFinale />;
+  if (isGrandFinale) return <GrandFinale />;
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-[#0a0607] overflow-hidden relative">
-      {/* INTENSYWNIEJSZE TŁO */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         {backgroundHearts.map((heart) => (
           <motion.div
             key={heart.id}
-            className="absolute text-rose-500/30" // Większa widoczność
+            className="absolute text-rose-500/30"
             style={{ left: heart.left, top: heart.top }}
             animate={{
               y: [0, heart.yAmplitude, 0],
@@ -240,7 +244,7 @@ export default function Page() {
                   Dostęp przyznany.
                 </p>
                 <div className="flex justify-center gap-3 mt-6 text-rose-500/60 font-bold uppercase tracking-[0.2em] text-[10px]">
-                  Wróć później po więcej...
+                  Wróć jutro po kolejne wyzwanie!
                 </div>
               </motion.div>
             ) : (
@@ -269,18 +273,6 @@ export default function Page() {
                       </p>
                     </div>
                   </div>
-
-                  {currentRiddle?.extraHint && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="px-6 py-1 border-l-2 border-rose-500/30 ml-4"
-                    >
-                      <p className="text-[11px] text-zinc-500 italic leading-tight">
-                        {currentRiddle.extraHint}
-                      </p>
-                    </motion.div>
-                  )}
                 </div>
 
                 <div className="relative pt-4">
