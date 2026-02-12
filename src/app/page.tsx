@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { riddles, penaltyQuestions } from "./data/riddles";
+import { riddles } from "./data/riddles";
 import GrandFinale from "./components/GrandFinale/GrandFinale";
 import {
   LockKeyhole,
@@ -22,23 +22,18 @@ export default function Page() {
   const [input, setInput] = useState("");
   const [currentDay] = useState(new Date().getDate());
 
-  const [isPenaltyMode, setIsPenaltyMode] = useState(false);
-  const [penaltyStep, setPenaltyStep] = useState(0);
+  const [marathonStep, setMarathonStep] = useState(0);
   const [nextLockTime, setNextLockTime] = useState({
     h: "00",
     m: "00",
     s: "00",
   });
 
-  // 1. USTALANIE AKTUALNEGO PYTANIA (ZAPAMIĘTANE PRZEZ USEMEMO)
   const currentRiddle = useMemo(() => {
-    if (isPenaltyMode) {
-      return penaltyQuestions[penaltyStep];
-    }
-    return riddles.find((r) => r.day === currentDay);
-  }, [isPenaltyMode, penaltyStep, currentDay]);
+    const marathonRiddles = riddles.filter((r) => r.day === 13 || r.day === 14);
+    return marathonRiddles[marathonStep];
+  }, [marathonStep]);
 
-  // 2. PŁYNNE TŁO - SERCA
   const backgroundHearts = useMemo(() => {
     return [...Array(30)].map((_, i) => ({
       id: i,
@@ -52,76 +47,51 @@ export default function Page() {
     }));
   }, []);
 
-  // 3. RAPORTOWANIE POSTĘPÓW NA MAIL
-  const reportProgress = async (
-    step: number,
-    answer: string,
-    isCorrect: boolean,
-  ) => {
+  const reportProgress = async (answer: string, isCorrect: boolean) => {
     try {
       await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: isCorrect ? "✅ Natalia ZGADŁA!" : "❌ Natalia WPISAŁA BŁĄD",
-          message: `Natalia wpisała: "${answer}"\nStatus: ${isCorrect ? "POPRAWNA" : "BŁĘDNA"}\nEtap: ${isPenaltyMode ? "KARA " + (step + 1) : "Dzień " + currentDay}`,
+          message: `Natalia wpisała: "${answer}"\nStatus: ${isCorrect ? "POPRAWNA" : "BŁĘDNA"}\nEtap: Finałowy Maraton Krok ${marathonStep + 1}`,
         }),
       });
     } catch (e) {
-      console.error("Błąd raportowania:", e);
+      console.error(e);
     }
   };
 
-  // 4. INITIAL LOAD - SPRAWDZANIE STATUSU
   useEffect(() => {
     setMounted(true);
-    const penanceDone = localStorage.getItem("penance_12_complete");
-    const todaySolved = localStorage.getItem(`solved_day_${currentDay}`);
+    const marathonDone = localStorage.getItem("marathon_complete");
+    const savedMStep = localStorage.getItem("marathon_step");
 
-    if (currentDay >= 12 && !penanceDone) {
-      setIsPenaltyMode(true);
-      const savedStep = localStorage.getItem("penalty_step");
-      if (savedStep) setPenaltyStep(parseInt(savedStep));
-    } else if (todaySolved || penanceDone) {
+    if (marathonDone) {
       setIsSolved(true);
-      setIsPenaltyMode(false);
-      if (currentDay === 14) setIsGrandFinale(true);
+    } else if (savedMStep) {
+      setMarathonStep(parseInt(savedMStep));
     }
-  }, [currentDay]);
+  }, []);
 
-  // 5. TIMER I BLOKADA CZASOWA
   useEffect(() => {
     if (!mounted) return;
     const timer = setInterval(() => {
       const now = new Date();
       let target = new Date();
-      let shouldLock = true;
 
-      if (isPenaltyMode) {
-        const pTimes = [
-          { h: 18, m: 0 },
-          { h: 18, m: 45 },
-          { h: 19, m: 25 },
-        ];
-        const time = pTimes[penaltyStep] || pTimes[2];
-        target.setHours(time.h, time.m, 0, 0);
-        shouldLock = now.getTime() < target.getTime();
-      } else {
-        // Blokada do jutra do 14:44
+      if (!isSolved) {
         target.setHours(14, 44, 0, 0);
-        if (now.getTime() >= target.getTime()) {
-          shouldLock = false;
-          target.setDate(now.getDate() + 1);
-        } else {
-          shouldLock = false; // Pozwól wejść jeśli zadanie na dziś jest aktywne
-        }
-      }
+        if (now.getDate() === 12) target.setDate(13);
 
-      // Jeśli już rozwiązała, nie pokazuj ekranu blokady, tylko ekran sukcesu z timerem
-      if (isSolved) {
-        setIsLocked(false);
+        setIsLocked(now.getTime() < target.getTime());
       } else {
-        setIsLocked(shouldLock);
+        target.setHours(20, 30, 0, 0);
+        setIsLocked(false);
+
+        if (now.getTime() >= target.getTime()) {
+          setIsGrandFinale(true);
+        }
       }
 
       const diff = target.getTime() - now.getTime();
@@ -140,39 +110,27 @@ export default function Page() {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [isPenaltyMode, penaltyStep, currentDay, mounted, isSolved]);
+  }, [mounted, isSolved]);
 
   const handleCheck = async () => {
     if (!input.trim() || !currentRiddle) return;
     const guess = input.toLowerCase().trim();
     const correct = guess === (currentRiddle as any).answer.toLowerCase();
 
-    await reportProgress(penaltyStep, input, correct);
+    await reportProgress(input, correct);
 
     if (correct) {
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#e11d48", "#fb7185"],
-      });
-      if (isPenaltyMode) {
-        const next = penaltyStep + 1;
-        if (next < 3) {
-          setPenaltyStep(next);
-          localStorage.setItem("penalty_step", next.toString());
-          setInput("");
-        } else {
-          setIsPenaltyMode(false);
-          setIsSolved(true);
-          localStorage.setItem("penance_12_complete", "true");
-          localStorage.setItem(`solved_day_${currentDay}`, "true");
-          setInput("");
-        }
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+
+      const nextM = marathonStep + 1;
+      if (nextM < 2) {
+        setMarathonStep(nextM);
+        localStorage.setItem("marathon_step", nextM.toString());
+        setInput("");
       } else {
         setIsSolved(true);
-        localStorage.setItem(`solved_day_${currentDay}`, "true");
-        if (currentDay === 14) setIsGrandFinale(true);
+        localStorage.setItem("marathon_complete", "true");
+        setInput("");
       }
     } else {
       setIsWrong(true);
@@ -193,13 +151,11 @@ export default function Page() {
             animate={{
               y: [0, heart.yAmplitude, 0],
               x: [0, heart.xAmplitude, 0],
-              opacity: [0.2, 0.5, 0.2],
               rotate: [0, 25, 0],
             }}
             transition={{
               duration: heart.duration,
               repeat: Infinity,
-              delay: heart.delay,
               ease: "easeInOut",
             }}
           >
@@ -208,31 +164,47 @@ export default function Page() {
         ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md relative z-10"
-      >
+      <motion.div className="w-full max-w-md relative z-10">
         <div className="bg-black/85 backdrop-blur-3xl border border-rose-500/30 rounded-[45px] p-8 shadow-[0_0_100px_rgba(225,29,72,0.2)]">
           <AnimatePresence mode="wait">
             {isLocked ? (
-              <motion.div
-                key="lock"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-12"
-              >
+              <motion.div key="lock" className="text-center py-12">
                 <LockKeyhole
                   className="mx-auto text-rose-500/40 mb-6 animate-pulse"
                   size={55}
                 />
-                <h2 className="text-white text-xl font-serif italic tracking-wider uppercase">
-                  System Wstrzymany
+                <h2 className="text-white text-xl italic uppercase tracking-wider">
+                  Zagadki wstrzymane
                 </h2>
-                <p className="text-zinc-500 text-[10px] tracking-[0.5em] uppercase mt-8 font-black">
-                  Deszyfracja za: {nextLockTime.h}:{nextLockTime.m}:
-                  {nextLockTime.s}
+                <h2 className="text-zinc-400 text-sm mt-2">
+                  Wróć jutro o 14:44, by poznać kolejne pytania i zbliżyć się do
+                  finału...
+                </h2>
+                <p className="text-rose-500 font-mono text-lg tracking-[0.3em] mt-8 font-black">
+                  {nextLockTime.h}:{nextLockTime.m}:{nextLockTime.s}
                 </p>
+              </motion.div>
+            ) : isSolved ? (
+              <motion.div key="solved" className="text-center py-8">
+                <CheckCircle className="mx-auto text-rose-500 mb-6" size={65} />
+                <h2 className="text-white text-lg font-bold uppercase tracking-widest mb-2">
+                  To koniec pytań.
+                </h2>
+                <p className="text-rose-400 italic text-sm mb-6">
+                  Włącz dźwięki w telefonie i czekaj na finał...
+                </p>
+
+                <div className="bg-rose-950/20 py-6 rounded-3xl border border-rose-500/10 mb-6">
+                  <p className="text-rose-500 font-mono text-3xl tracking-[0.3em] animate-pulse mb-2">
+                    TIK TAK TIK TAK
+                  </p>
+                  <p className="text-zinc-500 text-[10px] tracking-[0.5em] uppercase font-black">
+                    Wróć o 20:30
+                  </p>
+                  <p className="text-white font-mono text-xl mt-4">
+                    {nextLockTime.h}:{nextLockTime.m}:{nextLockTime.s}
+                  </p>
+                </div>
               </motion.div>
             ) : isWrong ? (
               <motion.div key="wrong" className="text-center py-10">
@@ -242,44 +214,17 @@ export default function Page() {
                 </h2>
                 <button
                   onClick={() => setIsWrong(false)}
-                  className="mt-10 px-12 py-3 bg-rose-600 rounded-full text-white text-[10px] font-black uppercase transition-all shadow-lg hover:bg-rose-700"
+                  className="mt-10 px-12 py-3 bg-rose-600 rounded-full text-white text-[10px] font-black uppercase"
                 >
                   Ponów próbę
                 </button>
-              </motion.div>
-            ) : isSolved ? (
-              <motion.div
-                key="solved"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-12"
-              >
-                <CheckCircle className="mx-auto text-rose-500 mb-6" size={65} />
-                <p className="text-white italic text-xl font-serif">
-                  Dostęp przyznany.
-                </p>
-
-                <div className="mt-8 space-y-2 py-4 bg-rose-950/20 rounded-3xl border border-rose-500/10">
-                  <p className="text-zinc-500 text-[9px] tracking-[0.4em] uppercase font-black">
-                    Kolejne wyzwanie za:
-                  </p>
-                  <p className="text-rose-500 font-mono text-2xl tracking-widest shadow-rose-500/20">
-                    {nextLockTime.h}:{nextLockTime.m}:{nextLockTime.s}
-                  </p>
-                </div>
-
-                <div className="flex justify-center gap-3 mt-8 text-rose-500/60 font-bold uppercase tracking-[0.2em] text-[10px]">
-                  Wróć jutro po więcej...
-                </div>
               </motion.div>
             ) : (
               <motion.div key="active" className="space-y-7">
                 <div className="flex flex-col items-center gap-2">
                   <Fingerprint className="text-rose-500" size={35} />
-                  <div className="text-[10px] tracking-[0.6em] text-rose-500 font-black uppercase">
-                    {isPenaltyMode
-                      ? `KARA: SEKTOR ${penaltyStep + 1}/3`
-                      : "ZADANIE DNIA"}
+                  <div className="text-[10px] tracking-[0.6em] text-rose-500 font-black uppercase text-center">
+                    FINAL MARATHON: {marathonStep + 1}/2
                   </div>
                 </div>
 
@@ -289,15 +234,11 @@ export default function Page() {
                   </p>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex gap-4 p-4 bg-rose-950/30 rounded-2xl border border-rose-500/20 items-center">
-                    <Search size={18} className="text-rose-500 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-[12px] text-zinc-300 font-medium italic leading-snug">
-                        {currentRiddle?.hint}
-                      </p>
-                    </div>
-                  </div>
+                <div className="p-4 bg-rose-950/30 rounded-2xl border border-rose-500/20 flex gap-4 items-center">
+                  <Search size={18} className="text-rose-500 shrink-0" />
+                  <p className="text-[12px] text-zinc-300 font-medium italic">
+                    {currentRiddle?.hint}
+                  </p>
                 </div>
 
                 <div className="relative pt-4">
@@ -306,10 +247,10 @@ export default function Page() {
                     value={input}
                     onChange={(e) => {
                       setInput(e.target.value);
-                      if (isWrong) setIsWrong(false);
+                      setIsWrong(false);
                     }}
                     onKeyDown={(e) => e.key === "Enter" && handleCheck()}
-                    className="w-full bg-zinc-900/60 border-2 border-rose-500/10 focus:border-rose-500 rounded-2xl p-5 text-center text-white outline-none transition-all text-lg"
+                    className="w-full bg-zinc-900/60 border-2 border-rose-500/10 focus:border-rose-500 rounded-2xl p-5 text-center text-white outline-none text-lg"
                     placeholder="Wpisz odpowiedź..."
                   />
                   <button
