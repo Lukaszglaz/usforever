@@ -37,6 +37,9 @@ import {
   Moon,
   Trees,
   Film,
+  Focus,
+  Eye,
+  ShieldAlert,
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -186,17 +189,17 @@ const fullChallengesList: Challenge[] = [
   // PIKANTNE
   { text: "Pocałuj Łukasza w szyję... powoli.", target: "Natalia" },
   { text: "Łukasz szepcze Ci do ucha coś niegrzecznego.", target: "Łukasz" },
-  { text: "Zrób Łukaszowi masaż karku.", target: "Natalia" },
+  { text: "Zrób Łukaszowi masaż tam gdzie chce.", target: "Natalia" },
   { text: "Łukasz gryzie Cię delikatnie w ucho.", target: "Łukasz" },
   { text: "Włóż rękę pod koszulkę Łukasza na chwilę.", target: "Natalia" },
   { text: "Łukasz zgaduje kolor Twojej bielizny.", target: "Łukasz" },
-  { text: "Pocałujcie się tak, jak na pierwszej randce.", target: "Razem" },
+  { text: "Pocałujcie się.", target: "Razem" },
   {
     text: "Napisz Łukaszowi palcem na plecach tajną wiadomość.",
     target: "Natalia",
   },
-  { text: "Łukasz robi Ci masaż stóp.", target: "Łukasz" },
-  { text: "Przyciągnij Łukasza do siebie za pasek.", target: "Natalia" },
+  { text: "Łukasz robi Ci masaż tam gdzie chcesz", target: "Łukasz" },
+  { text: "Przyciągnij Łukasza do siebie.", target: "Natalia" },
   // GORĄCE
   { text: "Namiętny pocałunek z języczkiem przez 30 sekund.", target: "Razem" },
   { text: "Zdejmij z Łukasza jedną część garderoby.", target: "Natalia" },
@@ -311,7 +314,7 @@ const ourPlaces = [
 const loveCoupons = [
   {
     title: "Wieczór bez gotowania (no prawie)",
-    desc: "Łukasz przejmuje kuchnię na cały wieczór (z twoją pomocą).",
+    desc: "Ja przejmuje kuchnię na cały wieczór (z twoją pomocą).",
     icon: <Home />,
   },
   {
@@ -382,26 +385,26 @@ const photoGallery = [
     caption: "Kocham Cię najbardziej na świecie.",
   },
   {
-    url: "/grandfinale/photo7.jpg",
+    url: "/grandfinale/photoSeventh.jpg",
     caption: "Każda podróż z Tobą to przygoda życia.",
   },
   {
-    url: "/grandfinale/photo8.jpg",
+    url: "/grandfinale/photoEighth.jpg",
     caption: "W Twoich ramionach czas płynie inaczej.",
   },
   {
-    url: "/grandfinale/photo9.jpg",
+    url: "/grandfinale/photoNineth.jpg",
     caption: "Drobne gesty, które znaczą wszystko.",
   },
   {
-    url: "/grandfinale/photo10.jpg",
+    url: "/grandfinale/photoTenth.jpg",
     caption: "Twoje szczęście jest moim celem.",
   },
   {
-    url: "/grandfinale/photo11.jpg",
+    url: "/grandfinale/photoEleventh.jpg",
     caption: "My. Po prostu My. Idealnie niedoskonali.",
   },
-  { url: "/grandfinale/photo12.jpg", caption: "Na zawsze. Obiecuję." },
+  { url: "/grandfinale/photoTwelth.jpg", caption: "Na zawsze. Obiecuję." },
 ];
 
 // --- 3. GŁÓWNY KOMPONENT ---
@@ -469,6 +472,7 @@ export default function OurLoveStory() {
   // Audio Refs
   const bgAudioRef = useRef<HTMLAudioElement | null>(null);
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const secondMusicRef = useRef<HTMLAudioElement | null>(null);
   const [isVoicePlaying, setIsVoicePlaying] = useState(false);
 
   // --- EFEKTY (LOGIKA) ---
@@ -579,16 +583,24 @@ export default function OurLoveStory() {
     <div className="fixed inset-0 bg-[#0a0607] text-rose-50 font-serif overflow-y-auto overflow-x-hidden selection:bg-rose-500/30">
       <FallingPetals />
 
-      {/* Audio Players */}
-      <audio ref={bgAudioRef} src="/music/taniecdusz.mp3" loop />
+      {/* 1. Startowa muzyka tła - bez loop, żeby mogła się skończyć */}
       <audio
-        ref={voiceAudioRef}
-        src="/music/voice.mp3"
+        ref={bgAudioRef}
+        src="/music/taniecdusz.mp3"
         onEnded={() => {
-          setIsVoicePlaying(false);
-          bgAudioRef.current?.play();
+          // Jak Taniec Dusz się skończy, odpalamy Wyglaszladnie
+          if (secondMusicRef.current) {
+            secondMusicRef.current
+              .play()
+              .catch((e) => console.log("Błąd autoodtwarzania:", e));
+          }
         }}
       />
+
+      {/* 2. Druga muzyka tła - z loop, żeby grała już do końca */}
+      <audio ref={secondMusicRef} src="/music/wygladaszladnie.mp3" loop />
+
+      <audio ref={voiceAudioRef} src="/music/voice.mp3" loop />
 
       {mode !== "intro" && mode !== "lock" && <AudioVisualizer />}
 
@@ -600,20 +612,102 @@ export default function OurLoveStory() {
             exit={{ opacity: 0, scale: 1.1 }}
             className="min-h-screen flex flex-col items-center justify-center p-6 text-center z-10 relative"
           >
-            <motion.h1
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-6xl md:text-8xl font-light italic text-white mb-12"
+              transition={{ duration: 1.5 }}
+              className="mb-10 space-y-4"
             >
-              Moja <span className="text-rose-500 font-normal">Walentynka</span>
-            </motion.h1>
+              <motion.h1 className="text-6xl md:text-8xl font-light italic text-white">
+                Moja{" "}
+                <span className="text-rose-500 font-normal">Walentynka</span>
+              </motion.h1>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="flex items-center justify-center gap-2 text-rose-400/60"
+              >
+                <div className="h-px w-8 bg-current" />
+                <Heart size={14} fill="currentColor" />
+                <div className="h-px w-8 bg-current" />
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.5, duration: 1 }}
+              className="max-w-md space-y-8 mb-12"
+            >
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col items-center gap-2">
+                  <Volume2 className="text-rose-500/80" size={20} />
+                  <span className="text-[8px] uppercase tracking-widest text-zinc-500">
+                    Odcisz dźwięk
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-2 border-x border-white/10">
+                  <Focus className="text-rose-500/80" size={20} />
+                  <span className="text-[8px] uppercase tracking-widest text-zinc-500">
+                    Skup się
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <Eye className="text-rose-500/80" size={20} />
+                  <span className="text-[8px] uppercase tracking-widest text-zinc-500">
+                    Czytaj powoli
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-4 bg-white/5 backdrop-blur-md p-6 rounded-[30px] border border-white/5 shadow-2xl">
+                <p className="text-zinc-300 text-sm italic font-light leading-relaxed">
+                  To nie jest zwykła strona. To nasza mała kapsuła czasu —
+                  przypomnienie{" "}
+                  <span className="text-rose-400 font-medium">
+                    "dawnych nas"
+                  </span>{" "}
+                  i zapis naszego wspólnego początku.
+                </p>
+                <div className="flex items-center justify-center gap-3 text-zinc-500">
+                  <Sparkles size={16} className="text-rose-500/50" />
+                  <p className="text-[11px] uppercase tracking-widest">
+                    Wczuj się w każdy moment
+                  </p>
+                  <Sparkles size={16} className="text-rose-500/50" />
+                </div>
+              </div>
+            </motion.div>
+
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 3 }}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0 0 20px rgba(225, 29, 72, 0.4)",
+              }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setMode("lock")}
-              className="px-12 py-4 border border-rose-500/40 rounded-full uppercase tracking-[0.3em] text-[10px] font-bold hover:bg-rose-500 transition-all cursor-pointer"
+              className="group relative px-14 py-5 overflow-hidden rounded-full uppercase tracking-[0.4em] text-[11px] font-black text-white transition-all"
             >
-              Otwórz serce
+              <div className="absolute inset-0 bg-rose-600 group-hover:bg-rose-500 transition-colors" />
+              <span className="relative flex items-center gap-2">
+                Otwórz serce <ChevronRight size={14} />
+              </span>
             </motion.button>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 4 }}
+              className="absolute bottom-8 flex items-center gap-2 text-zinc-700 text-[9px] uppercase tracking-[0.5em] font-bold"
+            >
+              <span>Pozdrooo</span>
+              <div className="h-1 w-1 rounded-full bg-rose-500/50" />
+            </motion.div>
           </motion.div>
         )}
 
@@ -1226,24 +1320,28 @@ export default function OurLoveStory() {
                 <Send size={24} className="text-rose-500" /> List do Ciebie
               </h2>
               <div className="prose prose-invert prose-p:text-rose-100/80 prose-p:font-light prose-p:text-lg max-h-[40vh] overflow-y-auto mb-8 pr-4 custom-scrollbar">
-                <p>Moja Najdroższa,</p>
+                <p>Moja Droga,</p>
+
                 <p>
-                  Piszę to, bo czasem słowa grzęzną w gardle, a tutaj mogę je
-                  ułożyć tak, jak na to zasługujesz. Każdy dzień z Tobą to dla
-                  mnie lekcja tego, jak piękne może być życie, gdy dzieli się je
-                  z właściwą osobą.
+                  Piszę to, bo czasem gubię się we własnych słowach, a tutaj
+                  mogę je ułożyć tak, jak na to zasługujesz. Każdy dzień z Tobą
+                  to dla mnie lekcja tego, jak piękne może być życie, gdy dzieli
+                  się je z właściwą osobą — czyli z Tobą.
                 </p>
+
                 <p>
                   Dziękuję Ci za Twoją cierpliwość, za Twój śmiech, który
-                  rozgania moje chmury, i za to, że po prostu Jesteś. Nie
-                  potrzebuję wielkich fajerwerków, wystarczy mi Twoja dłoń w
-                  mojej.
+                  rozwesela mnie nawet w najgorszych chwilach, i za to, że po
+                  prostu jesteś. Nie potrzebuję wielkich fajerwerków — wystarczy
+                  mi po prostu Twoja dłoń, którą będę mógł trzymać.
                 </p>
+
                 <p>
                   Kocham Cię nie za to, jaka bywasz w idealne dni, ale za to,
                   kim jesteś zawsze.
                 </p>
-                <p className="text-right font-bold mt-8">- Twój Łukasz</p>
+
+                <p className="text-right font-bold mt-8">– Twój Łukasz</p>
               </div>
               <button
                 onClick={() => setMode("final")}
@@ -1259,9 +1357,12 @@ export default function OurLoveStory() {
         {mode === "final" && (
           <motion.div
             key="final"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             className="min-h-screen flex items-center justify-center text-center p-10 z-10 relative"
           >
             <div className="max-w-lg w-full">
+              {/* Animowane Serce */}
               <motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ repeat: Infinity, duration: 2 }}
@@ -1269,70 +1370,66 @@ export default function OurLoveStory() {
               >
                 <Heart
                   size={80}
-                  className="text-rose-600 fill-rose-600 mx-auto drop-shadow-2xl"
+                  className="text-rose-600 fill-rose-600 mx-auto drop-shadow-[0_0_20px_rgba(225,29,72,0.5)]"
                 />
               </motion.div>
+
               <h2 className="text-3xl italic font-light mb-8 text-white leading-relaxed">
                 Jesteś moim najpiękniejszym przeznaczeniem.
               </h2>
 
-              {/* Sekcja Audio ze Słuchawkami */}
+              {/* Sekcja Audio z informacją o dostępności */}
               <div className="bg-linear-to-br from-rose-900/40 to-black/60 border border-rose-500/30 rounded-3xl p-8 mb-10 backdrop-blur-xl shadow-2xl">
-                <div className="flex justify-center items-center gap-4 mb-6 text-rose-400">
-                  <div className="p-3 bg-rose-500/10 rounded-full">
-                    <Volume2 size={24} />
+                <div className="flex justify-center items-center gap-4 mb-6 text-rose-400/50">
+                  <div className="p-3 bg-rose-500/5 rounded-full">
+                    <ShieldAlert size={24} />
                   </div>
-                  <div className="h-px w-10 bg-rose-500/30"></div>
-                  <span className="text-2xl">🎧</span>
+                  <div className="h-px w-10 bg-rose-500/20"></div>
+                  <span className="text-2xl grayscale opacity-50">🎧</span>
                 </div>
-                <p className="text-rose-100 text-sm italic mb-8 font-light">
-                  "To wiadomość przeznaczona tylko dla Twoich uszu. Proszę,
-                  załóż słuchawki, zamknij oczy i wsłuchaj się w to, co mam Ci
-                  do powiedzenia..."
+
+                <p className="text-rose-100/60 text-sm italic mb-8 font-light leading-relaxed">
+                  "Przygotowałem dla Ciebie coś wyjątkowego, co wymagało
+                  odpowiednich słów. Wiadomość głosowa pojawi się tutaj już
+                  niedługo..."
                 </p>
-                <button
-                  onClick={handlePlayVoice}
-                  className={`w-full py-6 rounded-2xl flex items-center justify-center gap-4 transition-all duration-500 ${isVoicePlaying ? "bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.4)]" : "bg-white text-black hover:bg-rose-50"}`}
-                >
-                  {isVoicePlaying ? (
-                    <div className="flex gap-1 items-end h-6">
-                      {[...Array(5)].map((_, i) => (
-                        <motion.div
-                          key={i}
-                          className="w-1 bg-white"
-                          animate={{ height: [4, 20, 4] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.8,
-                            delay: i * 0.1,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <Play fill="black" size={20} />
-                  )}
-                  <span className="font-bold uppercase tracking-widest text-xs">
-                    {isVoicePlaying ? "Odtwarzanie..." : "Odsłuchaj wyznanie"}
-                  </span>
-                </button>
+
+                <div className="relative group">
+                  <button
+                    disabled={true}
+                    className="w-full py-6 rounded-2xl flex items-center justify-center gap-4 bg-white/5 border border-white/10 text-white/40 cursor-not-allowed transition-all duration-300"
+                  >
+                    <Play
+                      fill="currentColor"
+                      size={20}
+                      className="opacity-20"
+                    />
+                    <span className="font-bold uppercase tracking-widest text-[10px]">
+                      Nagranie będzie dostępne wkrótce
+                    </span>
+                  </button>
+
+                  {/* Subtelny blask pod przyciskiem */}
+                  <div className="absolute -inset-0.5 bg-rose-500/20 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+                </div>
               </div>
 
+              {/* Podpis */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 2 }}
-                className="text-[10px] tracking-[1em] uppercase text-rose-500/40 font-bold mb-2"
+                transition={{ delay: 1 }}
+                className="text-[10px] tracking-[1em] uppercase text-rose-500/40 font-bold mb-3"
               >
                 Na zawsze Twój
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 2.5 }}
-                className="text-4xl font-light italic text-white underline decoration-rose-500/50 decoration-1 underline-offset-8"
+                transition={{ delay: 1.5 }}
+                className="text-4xl font-light italic text-white"
               >
-                Łukasz
+                <span className="border-b border-rose-500/50 pb-2">Łukasz</span>
               </motion.div>
             </div>
           </motion.div>
